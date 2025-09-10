@@ -1,0 +1,332 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  IconButton,
+  Typography,
+  Box,
+  CircularProgress,
+} from '@mui/material';
+import { Close as CloseIcon, History as HistoryIcon } from '@mui/icons-material';
+import { useApi } from '@/hooks/useApi';
+
+// Define the interface for history item
+export interface HurdleHistoryItem {
+  id: number;
+  module_id: number;
+  module_name: string;
+  ref_id: number;
+  action_id: number;
+  action_name: string;
+  description: string;
+  raw_data: Record<string, unknown>;
+  createdBy: {
+    full_name: string;
+  };
+  created_at: string;
+}
+
+interface HurdleHistoryDialogProps {
+  open: boolean;
+  onClose: () => void;
+  hurdleId: number | null;
+  hurdleName: string;
+}
+
+const HurdleHistoryDialog: React.FC<HurdleHistoryDialogProps> = ({
+  open,
+  onClose,
+  hurdleId,
+  hurdleName,
+}) => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [historyData, setHistoryData] = useState<HurdleHistoryItem[] | null>(null);
+  const { get } = useApi();
+
+  const fetchHurdleHistory = useCallback(async (id: number) => {
+    setLoading(true);
+    setError(null);
+    console.log(`Fetching history for hurdle ID: ${id}`);
+    
+    try {
+      const response: any = await get(`/warehouse-hurdles/history/${id}`);
+      console.log("Raw API response:", response);
+      
+      if (response && response.data) {
+        setHistoryData(response.data as HurdleHistoryItem[]);
+        console.log("History data processed:", response.data);
+      } else {
+        console.error("Invalid response format:", response);
+        setError('Invalid response format received from server');
+      }
+    } catch (err) {
+      console.error('Error fetching hurdle history:', err);
+      setError('Failed to fetch hurdle history. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  }, [get]);
+
+  useEffect(() => {
+    if (open && hurdleId) {
+      fetchHurdleHistory(hurdleId);
+    }
+  }, [open, hurdleId, fetchHurdleHistory]);
+
+  const handleClose = () => {
+    onClose();
+    // Clear data when dialog closes, but after a slight delay
+    setTimeout(() => {
+      setHistoryData(null);
+      setError(null);
+    }, 300);
+  };
+
+  // Helper function to get color based on action_name
+  const getActionColor = (actionName: string) => {
+    switch (actionName.toUpperCase()) {
+      case 'ADD':
+        return 'primary.main';
+      case 'EDIT':
+        return 'primary.main';
+      case 'APPROVE':
+        return 'success.main';
+      case 'DEACTIVATE': // For Approval
+        return 'warning.main';
+      case 'CANCEL': // Back to Pending
+        return 'error.main';
+      default:
+        return 'text.secondary';
+    }
+  };
+
+  return (
+    <Dialog 
+      open={open} 
+      onClose={handleClose}
+      maxWidth="md"
+      fullWidth
+      PaperProps={{
+        sx: { 
+          borderRadius: 1,
+          minHeight: '60vh',
+        }
+      }}
+    >
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box display="flex" alignItems="center">
+          <HistoryIcon sx={{ mr: 1, color: 'primary.main' }} />
+          <Typography variant="h6">
+            Activity History: {hurdleName || 'Store Hurdle'}
+          </Typography>
+        </Box>
+        <IconButton edge="end" color="inherit" onClick={handleClose} aria-label="close">
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+
+      <DialogContent dividers>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+            <CircularProgress />
+          </Box>
+        ) : error ? (
+          <Box sx={{ p: 3 }}>
+            <Typography color="error">{error}</Typography>
+          </Box>
+        ) : !historyData || historyData.length === 0 ? (
+          <Box sx={{ p: 3 }}>
+            <Typography variant="body1">No history data available for this hurdle.</Typography>
+          </Box>
+        ) : (
+          <Box sx={{ position: 'relative' }}>
+            {/* Vertical line */}
+            <Box
+              sx={{
+                position: 'absolute',
+                left: '12px',
+                top: 0,
+                bottom: 0,
+                width: '2px',
+                backgroundColor: 'divider'
+              }}
+            />
+
+            {/* Timeline items */}
+            {historyData.map((item) => (
+              <Box key={item.id} sx={{ display: 'flex', mb: 3, position: 'relative' }}>
+                {/* Timeline dot */}
+                <Box
+                  sx={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: '50%',
+                    backgroundColor: getActionColor(item.action_name),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mr: 2,
+                    zIndex: 1,
+                  }}
+                />
+
+                {/* Content */}
+                <Box
+                  sx={{
+                    p: 2,
+                    flex: 1,
+                    borderLeft: `4px solid ${getActionColor(item.action_name)}`,
+                    bgcolor: 'background.paper',
+                    borderRadius: 1,
+                    boxShadow: 1,
+                  }}
+                >
+                  <Typography variant="subtitle1" fontWeight="bold">
+                    {item.action_name}
+                  </Typography>
+                  <Typography variant="body1" sx={{ my: 1 }}>
+                    {item.description}
+                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      By: {item.createdBy.full_name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {new Date(item.created_at).toLocaleString()}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        )}
+      </DialogContent>
+
+      <DialogActions>
+        <Button onClick={handleClose}>Close</Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+export default HurdleHistoryDialog;
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  IconButton,
+  Typography,
+  Box,
+} from '@mui/material';
+import { Close as CloseIcon, History as HistoryIcon } from '@mui/icons-material';
+import HurdleHistoryTimeline, { HurdleHistoryItem } from './HurdleHistoryTimeline';
+import { useApi } from '@/hooks/useApi';
+
+interface HurdleHistoryDialogProps {
+  open: boolean;
+  onClose: () => void;
+  hurdleId: number | null;
+  hurdleName: string;
+}
+
+const HurdleHistoryDialog: React.FC<HurdleHistoryDialogProps> = ({
+  open,
+  onClose,
+  hurdleId,
+  hurdleName,
+}) => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [historyData, setHistoryData] = useState<HurdleHistoryItem[] | null>(null);
+  const { get } = useApi();
+
+  const fetchHurdleHistory = useCallback(async (id: number) => {
+    setLoading(true);
+    setError(null);
+    console.log(`Fetching history for hurdle ID: ${id}`);
+    
+    try {
+      const response: any = await get(`/warehouse-hurdles/history/${id}`);
+      console.log("Raw API response:", response);
+      
+      if (response && response.data) {
+        setHistoryData(response.data as HurdleHistoryItem[]);
+        console.log("History data processed:", response.data);
+      } else {
+        console.error("Invalid response format:", response);
+        setError('Invalid response format received from server');
+      }
+    } catch (err) {
+      console.error('Error fetching hurdle history:', err);
+      setError('Failed to fetch hurdle history. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  }, [get]);
+
+  useEffect(() => {
+    if (open && hurdleId) {
+      fetchHurdleHistory(hurdleId);
+    }
+  }, [open, hurdleId, fetchHurdleHistory]);
+      console.error('Error fetching hurdle history:', err);
+      setError('Failed to fetch hurdle history. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClose = () => {
+    onClose();
+    // Clear data when dialog closes, but after a slight delay
+    setTimeout(() => {
+      setHistoryData(null);
+      setError(null);
+    }, 300);
+  };
+
+  return (
+    <Dialog 
+      open={open} 
+      onClose={handleClose}
+      maxWidth="md"
+      fullWidth
+      PaperProps={{
+        sx: { 
+          borderRadius: 1,
+          minHeight: '60vh',
+        }
+      }}
+    >
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box display="flex" alignItems="center">
+          <HistoryIcon sx={{ mr: 1, color: 'primary.main' }} />
+          <Typography variant="h6">
+            Activity History: {hurdleName || 'Store Hurdle'}
+          </Typography>
+        </Box>
+        <IconButton edge="end" color="inherit" onClick={handleClose} aria-label="close">
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent dividers>
+        <HurdleHistoryTimeline 
+          historyData={historyData} 
+          loading={loading} 
+          error={error} 
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleClose}>Close</Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+export default HurdleHistoryDialog;

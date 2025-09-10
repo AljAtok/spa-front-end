@@ -1,0 +1,44 @@
+/* src/styles/global.css */
+@import url("https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;600;700&display=swap");
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Keep this to ensure app handles scrolling */
+  font-family: "Source Sans Pro", sans-serif;
+}
+
+.app {
+  display: flex;
+  position: relative;
+  height: 100vh; /* Use viewport height for app container */
+  width: 100vw; /* Use viewport width for app container */
+  overflow: hidden; /* This container should prevent overall scrolling */
+}
+
+.content {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto; /* This is where the main content scrolls */
+  overflow-x: hidden;
+  height: 100%; /* Important for internal flexbox */
+}
+
+/* Scrollbar styles remain */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #e0e0e0;
+}
+::-webkit-scrollbar-thumb {
+  background: #eeecec;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #7d7c7c;
+}

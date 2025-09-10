@@ -1,0 +1,210 @@
+import React, { useState, useEffect } from "react  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!warehouseHurdleId || !open) return;
+      
+      setLoading(true);
+      try {
+        console.log(`Fetching history for warehouse hurdle ID: ${warehouseHurdleId}`);
+        const response: any = await get(`/warehouse-hurdles/history/${warehouseHurdleId}`);
+        console.log("Raw API response:", response);
+        
+        if (response && response.data) {
+          setHistory(response.data as HistoryItem[]);
+          console.log("History data processed:", response.data);
+        } else {
+          console.error("Invalid response format or empty data:", response);
+          setHistory([]);
+        }
+      } catch (error) {
+        console.error("Error fetching warehouse hurdle history:", error);
+        setHistory([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHistory();
+  }, [warehouseHurdleId, open, get]);log,
+  DialogTitle,
+  DialogContent,
+  Box,
+  Typography,
+  CircularProgress,
+  IconButton,
+  Paper,
+  Divider,
+  useTheme,
+} from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
+import { useApi } from "@/hooks/useApi";
+
+interface HistoryItem {
+  id: number;
+  module_id: number;
+  module_name: string;
+  ref_id: number;
+  action_id: number;
+  action_name: string;
+  description: string;
+  raw_data: Record<string, unknown>;
+  createdBy: {
+    full_name: string;
+  };
+  created_at: string;
+}
+
+interface WarehouseHurdleHistoryProps {
+  open: boolean;
+  onClose: () => void;
+  warehouseHurdleId: number | null;
+  warehouseName: string;
+}
+
+const WarehouseHurdleHistory: React.FC<WarehouseHurdleHistoryProps> = ({
+  open,
+  onClose,
+  warehouseHurdleId,
+  warehouseName,
+}) => {
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const { get } = useApi();
+  const theme = useTheme();
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!warehouseHurdleId || !open) return;
+      
+      setLoading(true);
+      try {
+        const response = await get(`/warehouse-hurdles/history/${warehouseHurdleId}`) as { data: HistoryItem[] };
+        if (response && response.data) {
+          setHistory(response.data as HistoryItem[]);
+        }
+      } catch (error) {
+        console.error("Error fetching warehouse hurdle history:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHistory();
+  }, [warehouseHurdleId, open, get]);
+
+  // Get color based on action_name
+  const getActionColor = (actionName: string) => {
+    switch (actionName) {
+      case "ADD":
+        return theme.palette.info.main;
+      case "APPROVE":
+        return theme.palette.success.main;
+      case "DEACTIVATE": // For Approval
+        return theme.palette.warning.main;
+      case "CANCEL": // Back to Pending
+        return theme.palette.error.main;
+      default:
+        return theme.palette.text.secondary;
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <DialogTitle>
+        History for {warehouseName}
+        <IconButton
+          aria-label="close"
+          onClick={onClose}
+          sx={{
+            position: "absolute",
+            right: 8,
+            top: 8,
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent dividers>
+        {loading ? (
+          <Box display="flex" justifyContent="center" p={3}>
+            <CircularProgress />
+          </Box>
+        ) : history.length > 0 ? (
+          <Box sx={{ position: "relative" }}>
+            {/* Vertical line */}
+            <Box
+              sx={{
+                position: "absolute",
+                left: "12px",
+                top: 0,
+                bottom: 0,
+                width: "2px",
+                backgroundColor: theme.palette.divider,
+              }}
+            />
+
+            {/* Timeline items */}
+            {history.map((item) => (
+              <Box key={item.id} sx={{ display: "flex", mb: 3, position: "relative" }}>
+                {/* Timeline dot */}
+                <Box
+                  sx={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: "50%",
+                    backgroundColor: getActionColor(item.action_name),
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    mr: 2,
+                    zIndex: 1,
+                  }}
+                />
+
+                {/* Content */}
+                <Paper
+                  elevation={1}
+                  sx={{
+                    p: 2,
+                    flex: 1,
+                    borderLeft: `4px solid ${getActionColor(item.action_name)}`,
+                  }}
+                >
+                  <Typography variant="subtitle1" fontWeight="bold">
+                    {item.action_name}
+                  </Typography>
+                  <Typography variant="body1" sx={{ my: 1 }}>
+                    {item.description}
+                  </Typography>
+                  <Divider sx={{ my: 1 }} />
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontSize: "0.875rem",
+                      color: "text.secondary",
+                    }}
+                  >
+                    <Typography variant="caption">
+                      By: {item.createdBy.full_name}
+                    </Typography>
+                    <Typography variant="caption">
+                      {new Date(item.created_at).toLocaleString()}
+                    </Typography>
+                  </Box>
+                </Paper>
+              </Box>
+            ))}
+          </Box>
+        ) : (
+          <Box p={3} textAlign="center">
+            <Typography variant="body1" color="text.secondary">
+              No history available for this warehouse hurdle.
+            </Typography>
+          </Box>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default WarehouseHurdleHistory;
