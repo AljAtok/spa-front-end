@@ -76,8 +76,13 @@ const COLUMN_CONFIG: DynamicColumnConfig[] = [
   },
 ];
 
-const mobileHiddenFields = ["created_user", "created_at"];
-const nonMobileHiddenFields = [""];
+const mobileHiddenFields = [
+  "created_user",
+  "created_at",
+  "status_name",
+  "warehouse_name",
+];
+const nonMobileHiddenFields = ["status_name"];
 
 interface StoreHurdleWithDisplay extends StoreHurdle {
   extension_categories_display: string;
@@ -90,6 +95,7 @@ const BulkActionButtons = React.memo(
     hasEditPermission,
     hasApprovalPermission,
     hasRevertPermission,
+    hasPostPermission,
     selectedRows,
     onBulkForApproval,
     onBulkApproved,
@@ -102,6 +108,7 @@ const BulkActionButtons = React.memo(
     hasEditPermission: boolean;
     hasApprovalPermission: boolean;
     hasRevertPermission: boolean;
+    hasPostPermission: boolean;
     selectedRows: string[];
     onBulkForApproval: () => void;
     onBulkApproved: () => void;
@@ -113,6 +120,7 @@ const BulkActionButtons = React.memo(
     console.log("BulkActionButtons render:", {
       statusId,
       selectedRows,
+      hasEditPermission,
       length: selectedRows.length,
     });
 
@@ -123,7 +131,7 @@ const BulkActionButtons = React.memo(
 
     const buttons = [];
 
-    if (statusId === 3 && hasEditPermission) {
+    if (statusId === 3 && hasPostPermission) {
       // Pending tab
 
       buttons.push(
@@ -147,29 +155,56 @@ const BulkActionButtons = React.memo(
             : `Send ${selectedRows.length} for Approval`}
         </Button>
       );
-    } else if (statusId === 6 && hasApprovalPermission) {
+    } else if (statusId === 6 && (hasApprovalPermission || hasPostPermission)) {
       // For Approval tab
-      buttons.push(
-        <Button
-          key="bulk-approved"
-          variant="contained"
-          color="success"
-          startIcon={
-            loadingBulkApproved ? (
-              <CircularProgress size={16} color="inherit" />
-            ) : (
-              <CheckCircle />
-            )
-          }
-          onClick={onBulkApproved}
-          disabled={loadingBulkApproved}
-          sx={{ mr: 1 }}
-        >
-          {loadingBulkApproved
-            ? "Approving..."
-            : `Approve ${selectedRows.length} Items`}
-        </Button>
-      );
+      if (hasApprovalPermission) {
+        buttons.push(
+          <Button
+            key="bulk-approved"
+            variant="contained"
+            color="success"
+            startIcon={
+              loadingBulkApproved ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <CheckCircle />
+              )
+            }
+            onClick={onBulkApproved}
+            disabled={loadingBulkApproved}
+            sx={{ mr: 1 }}
+          >
+            {loadingBulkApproved
+              ? "Approving..."
+              : `Approve ${selectedRows.length} Items`}
+          </Button>
+        );
+      }
+
+      if (hasPostPermission) {
+        // For Approval tab
+        buttons.push(
+          <Button
+            key="bulk-back-to-pending"
+            variant="contained"
+            color="warning"
+            startIcon={
+              loadingBulkBackToPending ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <RestoreFromTrash />
+              )
+            }
+            onClick={onBulkBackToPending}
+            disabled={loadingBulkBackToPending}
+            sx={{ mr: 1 }}
+          >
+            {loadingBulkBackToPending
+              ? "Reverting..."
+              : `Revert ${selectedRows.length} to Pending`}
+          </Button>
+        );
+      }
     } else if (statusId === 7 && hasRevertPermission) {
       // Approved tab
       buttons.push(
@@ -198,7 +233,7 @@ const BulkActionButtons = React.memo(
     return (
       <Box
         sx={{
-          p: 2,
+          p: 0,
           display: "flex",
           justifyContent: "flex-end",
           borderTop: 1,
@@ -267,12 +302,14 @@ const StoreHurdleManagement: React.FC = () => {
     canEditInModule,
     canApproveInModule,
     canRevertInModule,
+    canPostInModule,
     loading: permissionsLoading,
   } = useUserPermissions();
   const hasViewPermission = canViewModule("store-hurdles");
   const hasEditPermission = canEditInModule("store-hurdles");
   const hasApprovalPermission = canApproveInModule("store-hurdles");
   const hasRevertPermission = canRevertInModule("store-hurdles");
+  const hasPostPermission = canPostInModule("store-hurdles");
 
   const loadData = useCallback(async () => {
     setLoadingData(true);
@@ -303,6 +340,14 @@ const StoreHurdleManagement: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Selection helpers for per-tab state
+  const clearSelectedRowsForCurrentTab = useCallback(() => {
+    setSelectedRowsByTab((prev) => ({
+      ...prev,
+      [currentTab]: [],
+    }));
+  }, [currentTab]);
 
   const handleEdit = useCallback(
     (id: string | number, rowData: StoreHurdleWithDisplay) => {
@@ -390,13 +435,20 @@ const StoreHurdleManagement: React.FC = () => {
         setOpenToggleStatusDialog(false);
         setRowToToggleStatus(null);
         setCurrentTabIndex(currentTabIndex);
+        clearSelectedRowsForCurrentTab();
       } catch (error) {
         console.error("Error toggling hurdle status:", error);
       } finally {
         setLoadingToggleStatus(false); // Stop loading
       }
     }
-  }, [rowToToggleStatus, patch, loadData, currentTabIndex]);
+  }, [
+    rowToToggleStatus,
+    patch,
+    loadData,
+    currentTabIndex,
+    clearSelectedRowsForCurrentTab,
+  ]);
 
   const handleNew = useCallback(() => {
     navigate("/store-hurdle-form", {
@@ -421,14 +473,6 @@ const StoreHurdleManagement: React.FC = () => {
     });
   }, [navigate, currentTabIndex]);
 
-  // Selection helpers for per-tab state
-  const clearSelectedRowsForCurrentTab = useCallback(() => {
-    setSelectedRowsByTab((prev) => ({
-      ...prev,
-      [currentTab]: [],
-    }));
-  }, [currentTab]);
-
   // Handler for undo reason dialog
   const handleConfirmActionWithReason = useCallback(
     async (reason: string) => {
@@ -441,6 +485,7 @@ const StoreHurdleManagement: React.FC = () => {
           setOpenReasonDialog(false);
           setRowToToggleStatus(null);
           setCurrentTabIndex(currentTabIndex);
+          clearSelectedRowsForCurrentTab();
         } catch (error) {
           console.error("Error reverting hurdle to pending:", error);
         } finally {
@@ -741,7 +786,7 @@ const StoreHurdleManagement: React.FC = () => {
           }
 
           // For Approval button
-          if (hasEditPermission) {
+          if (hasPostPermission) {
             actions.push({
               type: "for-approval",
               tooltip: "Send for Approval",
@@ -777,6 +822,18 @@ const StoreHurdleManagement: React.FC = () => {
               ariaLabel: "approved",
             });
           }
+
+          // Back to Pending button
+          if (hasRevertPermission) {
+            actions.push({
+              type: "back-to-pending",
+              tooltip: "Revert to Pending",
+              icon: Undo,
+              onClick: handleBackToPending,
+              color: "warning",
+              ariaLabel: "back-to-pending",
+            });
+          }
           break;
 
         case 7: // APPROVED
@@ -808,6 +865,7 @@ const StoreHurdleManagement: React.FC = () => {
       handleBackToPending,
       hasApprovalPermission,
       hasRevertPermission,
+      hasPostPermission,
       handleViewHistory,
     ]
   );
@@ -909,6 +967,20 @@ const StoreHurdleManagement: React.FC = () => {
       label: "Pending",
       content: (
         <Box>
+          <BulkActionButtons
+            statusId={3}
+            hasEditPermission={hasEditPermission}
+            hasApprovalPermission={hasApprovalPermission}
+            hasRevertPermission={hasRevertPermission}
+            hasPostPermission={hasPostPermission}
+            selectedRows={selectedRowsByTab.pending}
+            onBulkForApproval={handleBulkForApproval}
+            onBulkApproved={handleBulkApproved}
+            onBulkBackToPending={handleBulkBackToPending}
+            loadingBulkForApproval={loadingBulkForApproval}
+            loadingBulkApproved={loadingBulkApproved}
+            loadingBulkBackToPending={loadingBulkBackToPending}
+          />
           <CustomDataGrid<StoreHurdleWithDisplay>
             key="pending-datagrid"
             rows={pendingRows}
@@ -928,19 +1000,6 @@ const StoreHurdleManagement: React.FC = () => {
             <br />
             All tabs state: {JSON.stringify(selectedRowsByTab)}
           </Box> */}
-          <BulkActionButtons
-            statusId={3}
-            hasEditPermission={hasEditPermission}
-            hasApprovalPermission={hasApprovalPermission}
-            hasRevertPermission={hasRevertPermission}
-            selectedRows={selectedRowsByTab.pending}
-            onBulkForApproval={handleBulkForApproval}
-            onBulkApproved={handleBulkApproved}
-            onBulkBackToPending={handleBulkBackToPending}
-            loadingBulkForApproval={loadingBulkForApproval}
-            loadingBulkApproved={loadingBulkApproved}
-            loadingBulkBackToPending={loadingBulkBackToPending}
-          />
         </Box>
       ),
     },
@@ -948,6 +1007,20 @@ const StoreHurdleManagement: React.FC = () => {
       label: "For Approval",
       content: (
         <Box>
+          <BulkActionButtons
+            statusId={6}
+            hasEditPermission={hasEditPermission}
+            hasApprovalPermission={hasApprovalPermission}
+            hasRevertPermission={hasRevertPermission}
+            hasPostPermission={hasPostPermission}
+            selectedRows={selectedRowsByTab.forApproval}
+            onBulkForApproval={handleBulkForApproval}
+            onBulkApproved={handleBulkApproved}
+            onBulkBackToPending={handleBulkBackToPending}
+            loadingBulkForApproval={loadingBulkForApproval}
+            loadingBulkApproved={loadingBulkApproved}
+            loadingBulkBackToPending={loadingBulkBackToPending}
+          />
           <CustomDataGrid<StoreHurdleWithDisplay>
             key="for-approval-datagrid"
             rows={forApprovalRows}
@@ -967,19 +1040,6 @@ const StoreHurdleManagement: React.FC = () => {
             <br />
             All tabs state: {JSON.stringify(selectedRowsByTab)}
           </Box> */}
-          <BulkActionButtons
-            statusId={6}
-            hasEditPermission={hasEditPermission}
-            hasApprovalPermission={hasApprovalPermission}
-            hasRevertPermission={hasRevertPermission}
-            selectedRows={selectedRowsByTab.forApproval}
-            onBulkForApproval={handleBulkForApproval}
-            onBulkApproved={handleBulkApproved}
-            onBulkBackToPending={handleBulkBackToPending}
-            loadingBulkForApproval={loadingBulkForApproval}
-            loadingBulkApproved={loadingBulkApproved}
-            loadingBulkBackToPending={loadingBulkBackToPending}
-          />
         </Box>
       ),
     },
@@ -987,6 +1047,20 @@ const StoreHurdleManagement: React.FC = () => {
       label: "Approved",
       content: (
         <Box>
+          <BulkActionButtons
+            statusId={7}
+            hasEditPermission={hasEditPermission}
+            hasApprovalPermission={hasApprovalPermission}
+            hasRevertPermission={hasRevertPermission}
+            hasPostPermission={hasPostPermission}
+            selectedRows={selectedRowsByTab.approved}
+            onBulkForApproval={handleBulkForApproval}
+            onBulkApproved={handleBulkApproved}
+            onBulkBackToPending={handleBulkBackToPending}
+            loadingBulkForApproval={loadingBulkForApproval}
+            loadingBulkApproved={loadingBulkApproved}
+            loadingBulkBackToPending={loadingBulkBackToPending}
+          />
           <CustomDataGrid<StoreHurdleWithDisplay>
             key="approved-datagrid"
             rows={approvedRows}
@@ -1006,19 +1080,6 @@ const StoreHurdleManagement: React.FC = () => {
             <br />
             All tabs state: {JSON.stringify(selectedRowsByTab)}
           </Box> */}
-          <BulkActionButtons
-            statusId={7}
-            hasEditPermission={hasEditPermission}
-            hasApprovalPermission={hasApprovalPermission}
-            hasRevertPermission={hasRevertPermission}
-            selectedRows={selectedRowsByTab.approved}
-            onBulkForApproval={handleBulkForApproval}
-            onBulkApproved={handleBulkApproved}
-            onBulkBackToPending={handleBulkBackToPending}
-            loadingBulkForApproval={loadingBulkForApproval}
-            loadingBulkApproved={loadingBulkApproved}
-            loadingBulkBackToPending={loadingBulkBackToPending}
-          />
         </Box>
       ),
     },

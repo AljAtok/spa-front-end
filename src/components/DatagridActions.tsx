@@ -27,7 +27,7 @@ const DatagridActions = <T extends { [key: string]: unknown }>(
 ) => {
   const { rowId, actions, rowData } = props;
   return (
-    <Box sx={{ display: "flex", justifyContent: "center" }}>
+    <Box sx={{ display: "flex", justifyContent: "center", gap: 0 }}>
       {actions.map((action) => {
         // Check for showCondition
         if (action.showCondition && !action.showCondition(rowData)) {
@@ -60,6 +60,13 @@ const DatagridActions = <T extends { [key: string]: unknown }>(
               onClick={() => action.onClick(rowId, rowData)}
               color={colorValue as IconButtonProps["color"]}
               aria-label={ariaLabelValue}
+              size="small"
+              sx={{
+                p: 0.6,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
             >
               {IconComponent ? <IconComponent /> : action.text}
             </IconButton>
