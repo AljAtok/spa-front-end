@@ -29,6 +29,7 @@ interface UserUploadSuccessRow {
   Password: string;
   "Access Keys": string;
   Role: string;
+  "Location(s)"?: string;
   "User Reset": number;
   __rowNum__?: number;
 }
@@ -167,7 +168,7 @@ const UserUploadingPage: React.FC = () => {
   };
 
   return (
-    <Box maxWidth={900} mx="auto" mt={4}>
+    <Box maxWidth={1100} mx="auto" mt={4}>
       <FormHeader
         title="Upload User Excel"
         actionButton={
@@ -304,6 +305,7 @@ const UserUploadingPage: React.FC = () => {
                         <TableCell>Password</TableCell>
                         <TableCell>Access Keys</TableCell>
                         <TableCell>Role</TableCell>
+                        <TableCell>Location(s)</TableCell>
                         <TableCell>User Reset</TableCell>
                       </TableRow>
                     </TableHead>
@@ -320,6 +322,7 @@ const UserUploadingPage: React.FC = () => {
                           <TableCell>{row.Password}</TableCell>
                           <TableCell>{row["Access Keys"]}</TableCell>
                           <TableCell>{row.Role}</TableCell>
+                          <TableCell>{row["Location(s)"]}</TableCell>
                           <TableCell>{row["User Reset"]}</TableCell>
                         </TableRow>
                       ))}

@@ -162,7 +162,7 @@ const StoreHurdleUploadPage: React.FC = () => {
   };
 
   return (
-    <Box maxWidth={900} mx="auto" mt={4}>
+    <Box maxWidth={1100} mx="auto" mt={4}>
       <FormHeader
         title="Upload Store Hurdle Excel"
         actionButton={

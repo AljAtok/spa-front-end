@@ -125,6 +125,63 @@ const LoginPage: React.FC = () => {
         return;
       }
 
+      // After successful login, need to fetch the user's permissions
+      // to find the first authorized module to redirect to
+      try {
+        console.log("🔄 Fetching user permissions for navigation...");
+        // First, try to load permissions
+        const permissionsResponse = await api.get(
+          `/users/nested-per-access-key/${user.id}`
+        );
+
+        if (permissionsResponse.data && permissionsResponse.data.modules) {
+          // Define types for module and action
+          interface ModuleAction {
+            id: number;
+            action_name: string;
+            permission_status_id: number;
+          }
+
+          interface UserModule {
+            id: number;
+            module_link: string;
+            module_name: string;
+            order_level: number;
+            actions: ModuleAction[];
+          }
+
+          // Filter modules where user has "view" permission
+          const authorizedModules = permissionsResponse.data.modules.filter(
+            (module: UserModule) => {
+              return module.actions.some(
+                (action: ModuleAction) =>
+                  action.action_name.toLowerCase() === "view" &&
+                  action.permission_status_id === 1
+              );
+            }
+          );
+
+          // If we found authorized modules, use the first one's link
+          if (authorizedModules.length > 0) {
+            // Sort by order_level to get the highest priority module first
+            const sortedModules = [...authorizedModules].sort(
+              (a, b) => a.order_level - b.order_level
+            );
+
+            const firstModuleLink = sortedModules[0].module_link;
+            console.log(
+              `Redirecting to first authorized module: ${firstModuleLink}`
+            );
+            navigate(firstModuleLink, { replace: true });
+            return;
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching user modules for navigation:", err);
+      }
+
+      // Fallback to dashboard if we couldn't determine the first authorized module
+      console.log("Using fallback navigation to /dashboard");
       navigate("/dashboard", { replace: true });
     } catch (err: unknown) {
       console.error("Login failed:", err);
