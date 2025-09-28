@@ -800,7 +800,7 @@ const StoreHurdleManagement: React.FC = () => {
 
         case 6: // FOR APPROVAL
           // Edit button - only if user has edit permission
-          if (hasEditPermission) {
+          if (hasPostPermission) {
             actions.push({
               type: "edit",
               tooltip: "Edit Store Hurdle",
