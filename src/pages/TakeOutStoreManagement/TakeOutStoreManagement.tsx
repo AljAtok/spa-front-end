@@ -35,8 +35,14 @@ const COLUMN_CONFIG: DynamicColumnConfig[] = [
   { field: "segment_name", headerName: "Segment", flex: 1.5 },
   { field: "address", headerName: "Address", flex: 2 },
   {
+    field: "rem_status_name",
+    headerName: "Store Status",
+    flex: 0.8,
+    // renderer: "statusName",
+  },
+  {
     field: "status_name",
-    headerName: "Status",
+    headerName: "System Stat",
     flex: 0.8,
     renderer: "statusName",
   },
@@ -62,8 +68,14 @@ const mobileHiddenFields = [
   "address",
   "warehouse_type_name",
   "segment_name",
+  "status_name",
 ];
-const nonMobileHiddenFields = ["created_user", "address", "actions"];
+const nonMobileHiddenFields = [
+  "created_user",
+  "address",
+  "actions",
+  "status_name",
+];
 
 const TakeOutStoreManagement: React.FC = () => {
   const navigate = useNavigate();
@@ -95,6 +107,9 @@ const TakeOutStoreManagement: React.FC = () => {
           location_name: store.location_name || "",
           segment_name: store.segment_name || "",
           address: store.address || "",
+          rem_status_name:
+            store.rem_status_name ||
+            (store.rem_status_id === 8 ? "OPEN" : "N/A"),
           status_name:
             store.status_name ||
             (store.status_id === 1 ? "ACTIVE" : "INACTIVE"),
